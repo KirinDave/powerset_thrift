@@ -42,6 +42,7 @@
 #include "generate/t_xsd_generator.h"
 #include "generate/t_perl_generator.h"
 #include "generate/t_erl_generator.h"
+#include "generate/t_alterl_generator.h"
 #include "generate/t_ocaml_generator.h"
 #include "generate/t_hs_generator.h"
 #include "generate/t_cocoa_generator.h"
@@ -160,6 +161,7 @@ bool gen_phpo = false;
 bool gen_rest = false;
 bool gen_perl = false;
 bool gen_erl = false;
+bool gen_alterl = false;
 bool gen_ocaml = false;
 bool gen_hs = false;
 bool gen_cocoa = false;
@@ -617,6 +619,7 @@ void usage() {
   fprintf(stderr, "  -xsd        Generate XSD output files\n");
   fprintf(stderr, "  -perl       Generate Perl output files\n");
   fprintf(stderr, "  -erl        Generate Erlang output files\n");
+  fprintf(stderr, "  -alterl     Generate Alternative Erlang output files\n");
   fprintf(stderr, "  -ocaml      Generate OCaml output files\n");
   fprintf(stderr, "  -hs         Generate Haskell output files\n");
   fprintf(stderr, "  -cocoa      Generate Cocoa/Objective-C output files\n");
@@ -929,6 +932,13 @@ void generate(t_program* program) {
       delete erl;
     }
 
+    if (gen_alterl) {
+      pverbose("Generating Alternative Erlang\n");
+      t_alterl_generator* alterl = new t_alterl_generator(program);
+      alterl->generate_program();
+      delete alterl;
+    }
+
     if (gen_ocaml) {
       pverbose("Generating OCaml\n");
       t_ocaml_generator* ocaml = new t_ocaml_generator(program);
@@ -1054,6 +1064,8 @@ int main(int argc, char** argv) {
         gen_perl = true;
       } else if (strcmp(arg, "-erl") == 0) {
         gen_erl = true;
+      } else if (strcmp(arg, "-alterl") == 0) {
+        gen_alterl = true;
       } else if (strcmp(arg, "-ocaml") == 0) {
         gen_ocaml = true;
       } else if (strcmp(arg, "-hs") == 0) {
@@ -1112,7 +1124,7 @@ int main(int argc, char** argv) {
   }
 
   // You gotta generate something!
-  if (!gen_cpp && !gen_java && !gen_javabean && !gen_php && !gen_phpi && !gen_py && !gen_rb && !gen_xsd && !gen_perl && !gen_erl && !gen_ocaml && !gen_hs && !gen_cocoa && !gen_st && !gen_csharp) {
+  if (!gen_cpp && !gen_java && !gen_javabean && !gen_php && !gen_phpi && !gen_py && !gen_rb && !gen_xsd && !gen_perl && !gen_erl && !gen_alterl && !gen_ocaml && !gen_hs && !gen_cocoa && !gen_st && !gen_csharp) {
     fprintf(stderr, "!!! No output language(s) specified\n\n");
     usage();
   }
