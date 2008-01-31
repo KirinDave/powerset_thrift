@@ -3,8 +3,6 @@
 *.pc
 *.o
 *~
-Makefile
-Makefile.in
 compiler/cpp/thrift
 compiler/cpp/thriftl.cc
 compiler/cpp/thrifty.cc
