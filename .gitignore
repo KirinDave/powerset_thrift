@@ -26,7 +26,6 @@ config.sub
 configure
 configure.scan
 depcomp
-lib/alterl/build
 lib/alterl/ebin
 lib/cpp/.deps
 lib/cpp/.libs
