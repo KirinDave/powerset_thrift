@@ -4,14 +4,236 @@
 // See accompanying file LICENSE or visit the Thrift site at:
 // http://developers.facebook.com/thrift/
 
-#include <cstdlib>
 #include <cassert>
-#include <sys/stat.h>
+
+#include <fstream>
+#include <iostream>
 #include <sstream>
+#include <string>
+#include <vector>
+
 #include <boost/lexical_cast.hpp>
-#include "t_cpp_generator.h"
+#include <sys/stat.h>
+
 #include "platform.h"
+#include "t_oop_generator.h"
 using namespace std;
+
+
+/**
+ * C++ code generator. This is legitimacy incarnate.
+ *
+ * @author Mark Slee <mcslee@facebook.com>
+ */
+class t_cpp_generator : public t_oop_generator {
+ public:
+  t_cpp_generator(
+      t_program* program,
+      const std::map<std::string, std::string>& parsed_options,
+      const std::string& option_string)
+    : t_oop_generator(program)
+  {
+    std::map<std::string, std::string>::const_iterator iter;
+
+    iter = parsed_options.find("dense");
+    gen_dense_ = (iter != parsed_options.end());
+
+    iter = parsed_options.find("include_prefix");
+    use_include_prefix_ = (iter != parsed_options.end());
+
+    iter = parsed_options.find("reflection_limited");
+    gen_reflection_limited_ = (iter != parsed_options.end());
+
+    out_dir_base_ = "gen-cpp";
+  }
+
+  /**
+   * Init and close methods
+   */
+
+  void init_generator();
+  void close_generator();
+
+  void generate_consts(std::vector<t_const*> consts);
+
+  /**
+   * Program-level generation functions
+   */
+
+  void generate_typedef(t_typedef* ttypedef);
+  void generate_enum(t_enum* tenum);
+  void generate_struct(t_struct* tstruct) {
+    generate_cpp_struct(tstruct, false);
+  }
+  void generate_xception(t_struct* txception) {
+    generate_cpp_struct(txception, true);
+  }
+  void generate_cpp_struct(t_struct* tstruct, bool is_exception);
+
+  void generate_service(t_service* tservice);
+
+  void print_const_value(std::ofstream& out, std::string name, t_type* type, t_const_value* value);
+  std::string render_const_value(std::ofstream& out, std::string name, t_type* type, t_const_value* value);
+
+  void generate_struct_definition    (std::ofstream& out, t_struct* tstruct, bool is_exception=false, bool pointers=false, bool read=true, bool write=true);
+  void generate_struct_fingerprint   (std::ofstream& out, t_struct* tstruct, bool is_definition);
+  void generate_struct_reader        (std::ofstream& out, t_struct* tstruct, bool pointers=false);
+  void generate_struct_writer        (std::ofstream& out, t_struct* tstruct, bool pointers=false);
+  void generate_struct_result_writer (std::ofstream& out, t_struct* tstruct, bool pointers=false);
+
+  /**
+   * Service-level generation functions
+   */
+
+  void generate_service_interface (t_service* tservice);
+  void generate_service_null      (t_service* tservice);
+  void generate_service_multiface (t_service* tservice);
+  void generate_service_helpers   (t_service* tservice);
+  void generate_service_client    (t_service* tservice);
+  void generate_service_processor (t_service* tservice);
+  void generate_service_skeleton  (t_service* tservice);
+  void generate_process_function  (t_service* tservice, t_function* tfunction);
+  void generate_function_helpers  (t_service* tservice, t_function* tfunction);
+
+  void generate_service_limited_reflector(t_service* tservice);
+  bool generate_type_limited_reflection(t_type* ttype, std::string target);
+  bool generate_simple_type_limited_reflection(std::ostream& out, t_type* ttype, std::string target);
+
+  /**
+   * Serialization constructs
+   */
+
+  void generate_deserialize_field        (std::ofstream& out,
+                                          t_field*    tfield,
+                                          std::string prefix="",
+                                          std::string suffix="");
+
+  void generate_deserialize_struct       (std::ofstream& out,
+                                          t_struct*   tstruct,
+                                          std::string prefix="");
+
+  void generate_deserialize_container    (std::ofstream& out,
+                                          t_type*     ttype,
+                                          std::string prefix="");
+
+  void generate_deserialize_set_element  (std::ofstream& out,
+                                          t_set*      tset,
+                                          std::string prefix="");
+
+  void generate_deserialize_map_element  (std::ofstream& out,
+                                          t_map*      tmap,
+                                          std::string prefix="");
+
+  void generate_deserialize_list_element (std::ofstream& out,
+                                          t_list*     tlist,
+                                          std::string prefix,
+                                          bool push_back,
+                                          std::string index);
+
+  void generate_serialize_field          (std::ofstream& out,
+                                          t_field*    tfield,
+                                          std::string prefix="",
+                                          std::string suffix="");
+
+  void generate_serialize_struct         (std::ofstream& out,
+                                          t_struct*   tstruct,
+                                          std::string prefix="");
+
+  void generate_serialize_container      (std::ofstream& out,
+                                          t_type*     ttype,
+                                          std::string prefix="");
+
+  void generate_serialize_map_element    (std::ofstream& out,
+                                          t_map*      tmap,
+                                          std::string iter);
+
+  void generate_serialize_set_element    (std::ofstream& out,
+                                          t_set*      tmap,
+                                          std::string iter);
+
+  void generate_serialize_list_element   (std::ofstream& out,
+                                          t_list*     tlist,
+                                          std::string iter);
+
+  /**
+   * Helper rendering functions
+   */
+
+  std::string namespace_prefix(std::string ns);
+  std::string namespace_open(std::string ns);
+  std::string namespace_close(std::string ns);
+  std::string type_name(t_type* ttype, bool in_typedef=false, bool arg=false);
+  std::string base_type_name(t_base_type::t_base tbase);
+  std::string declare_field(t_field* tfield, bool init=false, bool pointer=false, bool constant=false, bool reference=false);
+  std::string function_signature(t_function* tfunction, std::string prefix="", bool name_params=true);
+  std::string argument_list(t_struct* tstruct, bool name_params=true);
+  std::string type_to_enum(t_type* ttype);
+  std::string local_reflection_name(const char*, t_type* ttype, bool external=false);
+
+  // These handles checking gen_dense_ and checking for duplicates.
+  void generate_local_reflection(std::ofstream& out, t_type* ttype, bool is_definition);
+  void generate_local_reflection_pointer(std::ofstream& out, t_type* ttype);
+
+  bool is_complex_type(t_type* ttype) {
+    ttype = get_true_type(ttype);
+
+    return
+      ttype->is_container() ||
+      ttype->is_struct() ||
+      ttype->is_xception() ||
+      (ttype->is_base_type() && (((t_base_type*)ttype)->get_base() == t_base_type::TYPE_STRING));
+  }
+
+  void set_use_include_prefix(bool use_include_prefix) {
+    use_include_prefix_ = use_include_prefix;
+  }
+
+ private:
+  /**
+   * Returns the include prefix to use for a file generated by program, or the
+   * empty string if no include prefix should be used.
+   */
+  std::string get_include_prefix(const t_program& program) const;
+
+  /**
+   * True iff we should generate limited reflectors for services.
+   */
+  bool gen_reflection_limited_;
+
+  /**
+   * True iff we should generate local reflection metadata for TDenseProtocol.
+   */
+  bool gen_dense_;
+
+  /**
+   * True iff we should use a path prefix in our #include statements for other
+   * thrift-generated header files.
+   */
+  bool use_include_prefix_;
+
+  /**
+   * Strings for namespace, computed once up front then used directly
+   */
+
+  std::string ns_open_;
+  std::string ns_close_;
+
+  /**
+   * File streams, stored here to avoid passing them as parameters to every
+   * function.
+   */
+
+  std::ofstream f_types_;
+  std::ofstream f_types_impl_;
+  std::ofstream f_header_;
+  std::ofstream f_service_;
+
+  /**
+   * When generating local reflections, make sure we don't generate duplicates.
+   */
+  std::set<std::string> reflected_fingerprints_;
+};
+
 
 /**
  * Prepares for file generation by opening up the necessary file output
@@ -62,8 +284,13 @@ void t_cpp_generator::init_generator() {
   // Include custom headers
   const vector<string>& cpp_includes = program_->get_cpp_includes();
   for (size_t i = 0; i < cpp_includes.size(); ++i) {
-    f_types_ <<
-      "#include \"" << cpp_includes[i] << "\"" << endl;
+    if (cpp_includes[i][0] == '<') {
+      f_types_ <<
+        "#include " << cpp_includes[i] << endl;
+    } else {
+      f_types_ <<
+        "#include \"" << cpp_includes[i] << "\"" << endl;
+    }
   }
   f_types_ <<
     endl;
@@ -83,8 +310,8 @@ void t_cpp_generator::init_generator() {
   }
 
   // Open namespace
-  ns_open_ = namespace_open(program_->get_cpp_namespace());
-  ns_close_ = namespace_close(program_->get_cpp_namespace());
+  ns_open_ = namespace_open(program_->get_namespace("cpp"));
+  ns_close_ = namespace_close(program_->get_namespace("cpp"));
 
   f_types_ <<
     ns_open_ << endl <<
@@ -543,6 +770,13 @@ void t_cpp_generator::generate_struct_definition(ofstream& out,
       indent() << "bool operator != (const " << tstruct->get_name() << " &rhs) const {" << endl <<
       indent() << "  return !(*this == rhs);" << endl <<
       indent() << "}" << endl << endl;
+
+    // Generate the declaration of a less-than operator.  This must be
+    // implemented by the application developer if they wish to use it.  (They
+    // will get a link error if they try to use it without an implementation.)
+    out <<
+      indent() << "bool operator < (const "
+               << tstruct->get_name() << " & ) const;" << endl << endl;
   }
   if (read) {
     out <<
@@ -1097,7 +1331,9 @@ void t_cpp_generator::generate_service_helpers(t_service* tservice) {
     generate_function_helpers(tservice, *f_iter);
   }
 
-  generate_service_limited_reflector(tservice);
+  if (gen_reflection_limited_) {
+    generate_service_limited_reflector(tservice);
+  }
 }
 
 /**
@@ -2079,7 +2315,7 @@ void t_cpp_generator::generate_service_skeleton(t_service* tservice) {
   // Service implementation file includes
   string f_skeleton_name = get_out_dir()+svcname+"_server.skeleton.cpp";
 
-  string ns = namespace_prefix(tservice->get_program()->get_cpp_namespace());
+  string ns = namespace_prefix(tservice->get_program()->get_namespace("cpp"));
 
   ofstream f_skeleton;
   f_skeleton.open(f_skeleton_name.c_str());
@@ -2185,7 +2421,12 @@ void t_cpp_generator::generate_deserialize_field(ofstream& out,
       throw "compiler error: cannot serialize void field in a struct: " + name;
       break;
     case t_base_type::TYPE_STRING:
-      out << "readString(" << name << ");";
+      if (((t_base_type*)type)->is_binary()) {
+        out << "readBinary(" << name << ");";
+      }
+      else {
+        out << "readString(" << name << ");";
+      }
       break;
     case t_base_type::TYPE_BOOL:
       out << "readBool(" << name << ");";
@@ -2401,7 +2642,12 @@ void t_cpp_generator::generate_serialize_field(ofstream& out,
           "compiler error: cannot serialize void field in a struct: " + name;
         break;
       case t_base_type::TYPE_STRING:
-        out << "writeString(" << name << ");";
+        if (((t_base_type*)type)->is_binary()) {
+          out << "writeBinary(" << name << ");";
+        }
+        else {
+          out << "writeString(" << name << ");";
+        }
         break;
       case t_base_type::TYPE_BOOL:
         out << "writeBool(" << name << ");";
@@ -2661,7 +2907,7 @@ string t_cpp_generator::type_name(t_type* ttype, bool in_typedef, bool arg) {
   if (program != NULL && program != program_) {
     pname =
       class_prefix +
-      namespace_prefix(program->get_cpp_namespace()) +
+      namespace_prefix(program->get_namespace("cpp")) +
       ttype->get_name();
   } else {
     pname = class_prefix + ttype->get_name();
@@ -2895,7 +3141,7 @@ string t_cpp_generator::local_reflection_name(const char* prefix, t_type* ttype,
   if (external &&
       ttype->get_program() != NULL &&
       ttype->get_program() != program_) {
-    nspace = namespace_prefix(ttype->get_program()->get_cpp_namespace());
+    nspace = namespace_prefix(ttype->get_program()->get_namespace("cpp"));
   }
 
   return nspace + "trlo_" + prefix + "_" + prog + "_" + name;
@@ -2916,3 +3162,9 @@ string t_cpp_generator::get_include_prefix(const t_program& program) const {
 
   return "";
 }
+
+
+THRIFT_REGISTER_GENERATOR(cpp, "C++",
+"    dense:           Generate type specifications for the dense protocol.\n"
+"    include_prefix:  Use full include paths in generated files.\n"
+);

@@ -12,6 +12,37 @@
 
 namespace facebook { namespace thrift { namespace transport {
 
+ /**
+  * Class to hold server information for TSocketPool
+  *
+  * @author Akhil Wable <akhil@facebook.com>
+  */
+class TSocketPoolServer {
+
+  public:
+  /**
+   * Default constructor for server info
+   */
+  TSocketPoolServer();
+
+  /**
+   * Constructor for TSocketPool server
+   */
+  TSocketPoolServer(const std::string &host, int port);
+
+  // Host name
+  std::string host_;
+
+  // Port to connect on
+  int port_;
+
+  // Last time connecting to this server failed
+  int lastFailTime_;
+
+  // Number of consecutive times connecting to this server failed
+  int consecutiveFailures_;
+};
+
 /**
  * TCP Socket implementation of the TTransport interface.
  *
@@ -34,7 +65,14 @@ class TSocketPool : public TSocket {
     *
     * @param servers list of pairs of host name and port
     */
-   TSocketPool(const std::vector<std::pair<std::string, int> > servers);
+   TSocketPool(const std::vector<std::pair<std::string, int> >& servers);
+
+   /**
+    * Socket pool constructor
+    *
+    * @param servers list of TSocketPoolServers
+    */
+   TSocketPool(const std::vector<TSocketPoolServer>& servers);
 
    /**
     * Socket pool constructor
@@ -53,6 +91,12 @@ class TSocketPool : public TSocket {
     * Add a server to the pool
     */
    void addServer(const std::string& host, int port);
+
+
+   /**
+    * Get list of servers in this pool
+    */
+   std::vector<TSocketPoolServer> getServers();
 
    /**
     * Sets how many times to keep retrying a host in the connect function.
@@ -87,7 +131,7 @@ class TSocketPool : public TSocket {
  protected:
 
    /** List of servers to connect to */
-   std::vector<std::pair<std::string, int> > servers_;
+   std::vector<TSocketPoolServer> servers_;
 
    /** How many times to retry each host in connect */
    int numRetries_;

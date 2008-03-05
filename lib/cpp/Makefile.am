@@ -31,6 +31,8 @@ libthrift_la_SOURCES = src/Thrift.cpp \
                        src/protocol/TBinaryProtocol.cpp \
                        src/protocol/TDebugProtocol.cpp \
                        src/protocol/TDenseProtocol.cpp \
+                       src/protocol/TJSONProtocol.cpp \
+                       src/protocol/TBase64Utils.cpp \
                        src/transport/TTransportException.cpp \
                        src/transport/TFileTransport.cpp \
                        src/transport/THttpClient.cpp \
@@ -38,6 +40,7 @@ libthrift_la_SOURCES = src/Thrift.cpp \
                        src/transport/TSocketPool.cpp \
                        src/transport/TServerSocket.cpp \
                        src/transport/TTransportUtils.cpp \
+                       src/server/TServer.cpp \
                        src/server/TSimpleServer.cpp \
                        src/server/TThreadPoolServer.cpp \
                        src/server/TThreadedServer.cpp \

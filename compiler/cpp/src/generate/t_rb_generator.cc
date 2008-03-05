@@ -288,27 +288,12 @@ void t_rb_generator::generate_rb_struct(std::ofstream& out, t_struct* tstruct, b
   if (is_exception) {
     generate_rb_simple_exception_constructor(out, tstruct);
   }
-  else {
-    generate_rb_simple_constructor(out, tstruct);
-  }
 
   generate_accessors(out, tstruct);
   generate_field_defns(out, tstruct);
 
   indent_down();
   indent(out) << "end" << endl << endl;
-}
-
-void t_rb_generator::generate_rb_simple_constructor(std::ofstream& out, t_struct* tstruct) {
-  const vector<t_field*>& members = tstruct->get_members();
-
-  if (members.size() > 0) {
-    indent(out) << "def initialize(opts={})" << endl;
-    indent_up();
-    indent(out) << "opts.each { |k, v| send(\"#{k}=\", v) }" << endl;
-    indent_down();
-    indent(out) << "end" << endl << endl;
-  }
 }
 
 void t_rb_generator::generate_rb_simple_exception_constructor(std::ofstream& out, t_struct* tstruct) {
@@ -318,12 +303,18 @@ void t_rb_generator::generate_rb_simple_exception_constructor(std::ofstream& out
     vector<t_field*>::const_iterator m_iter = members.begin();
 
     if ((*m_iter)->get_type()->is_string()) {
-      indent(out) << "def initialize(message)" << endl;
+      string name = (*m_iter)->get_name();
+
+      indent(out) << "def initialize(message=nil)" << endl;
       indent_up();
-      indent(out) << "super(message)" << endl;
-      indent(out) << "self." << (*m_iter)->get_name() << " = message" << endl;
+      indent(out) << "super()" << endl;
+      indent(out) << "self." << name << " = message" << endl;
       indent_down();
       indent(out) << "end" << endl << endl;
+
+      if (name != "message") {
+        indent(out) << "def message; " << name << " end" << endl << endl;
+      }
     }
   }
 }

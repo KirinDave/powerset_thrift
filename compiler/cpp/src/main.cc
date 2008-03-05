@@ -34,8 +34,6 @@
 #include "main.h"
 #include "parse/t_program.h"
 #include "parse/t_scope.h"
-#include "generate/t_cpp_generator.h"
-#include "generate/t_java_generator.h"
 #include "generate/t_php_generator.h"
 #include "generate/t_py_generator.h"
 #include "generate/t_rb_generator.h"
@@ -604,9 +602,6 @@ void generate_all_fingerprints(t_program* program) {
 void usage() {
   fprintf(stderr, "Usage: thrift [options] file\n");
   fprintf(stderr, "Options:\n");
-  fprintf(stderr, "  -cpp        Generate C++ output files\n");
-  fprintf(stderr, "  -java       Generate Java output files\n");
-  fprintf(stderr, "  -javabean   Generate Java bean-style output files\n");
   fprintf(stderr, "  -php        Generate PHP output files\n");
   fprintf(stderr, "  -phpi       Generate PHP inlined files\n");
   fprintf(stderr, "  -phps       Generate PHP server stubs (with -php)\n");
@@ -629,15 +624,27 @@ void usage() {
   fprintf(stderr, "               (default: current directory)\n");
   fprintf(stderr, "  -I dir      Add a directory to the list of directories\n");
   fprintf(stderr, "                searched for include directives\n");
-  fprintf(stderr, "  -cpp_use_include_prefix\n");
-  fprintf(stderr, "              Make C++ include statements use path prefixes\n");
-  fprintf(stderr, "  -dense      Generate metadata for TDenseProtocol (C++)\n");
   fprintf(stderr, "  -rest       Generate PHP REST processors (with -php)\n");
   fprintf(stderr, "  -nowarn     Suppress all compiler warnings (BAD!)\n");
   fprintf(stderr, "  -strict     Strict compiler warnings on\n");
   fprintf(stderr, "  -v[erbose]  Verbose mode\n");
   fprintf(stderr, "  -r[ecurse]  Also generate included files\n");
   fprintf(stderr, "  -debug      Parse debug trace to stdout\n");
+  fprintf(stderr, "  --gen STR   Generate code with a dynamically-registered generator.\n");
+  fprintf(stderr, "                STR has the form language[:key1=val1[,key2,[key3=val3]]].\n");
+  fprintf(stderr, "                Keys and values are options passed to the generator.\n");
+  fprintf(stderr, "                Many options will not require values.\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Available generators (and options):\n");
+
+  t_generator_registry::gen_map_t gen_map = t_generator_registry::get_generator_map();
+  t_generator_registry::gen_map_t::iterator iter;
+  for (iter = gen_map.begin(); iter != gen_map.end(); ++iter) {
+    fprintf(stderr, "  %s (%s):\n",
+        iter->second->get_short_name().c_str(),
+        iter->second->get_long_name().c_str());
+    fprintf(stderr, "%s", iter->second->get_documentation().c_str());
+  }
   exit(1);
 }
 
@@ -842,7 +849,7 @@ void parse(t_program* program, t_program* parent_program) {
 /**
  * Generate code
  */
-void generate(t_program* program) {
+void generate(t_program* program, const vector<string>& generator_strings) {
   // Oooohh, recursive code generation, hot!!
   if (gen_recurse) {
     const vector<t_program*>& includes = program->get_includes();
@@ -850,7 +857,7 @@ void generate(t_program* program) {
       // Propogate output path from parent to child programs
       includes[i]->set_out_path(program->get_out_path());
 
-      generate(includes[i]);
+      generate(includes[i], generator_strings);
     }
   }
 
@@ -860,28 +867,6 @@ void generate(t_program* program) {
 
     // Compute fingerprints.
     generate_all_fingerprints(program);
-
-    if (gen_cpp) {
-      pverbose("Generating C++\n");
-      t_cpp_generator* cpp = new t_cpp_generator(program, gen_dense);
-      cpp->set_use_include_prefix(g_cpp_use_include_prefix);
-      cpp->generate_program();
-      delete cpp;
-    }
-
-    if (gen_java) {
-      pverbose("Generating Java\n");
-      t_java_generator* java = new t_java_generator(program, false);
-      java->generate_program();
-      delete java;
-    }
-
-    if (gen_javabean) {
-      pverbose("Generating Java Beans\n");
-      t_java_generator* java = new t_java_generator(program, true);
-      java->generate_program();
-      delete java;
-    }
 
     if (gen_php) {
       pverbose("Generating PHP\n");
@@ -977,6 +962,19 @@ void generate(t_program* program) {
     if (dump_docs) {
       dump_docstrings(program);
     }
+
+    vector<string>::const_iterator iter;
+    for (iter = generator_strings.begin(); iter != generator_strings.end(); ++iter) {
+      t_generator* generator = t_generator_registry::get_generator(program, *iter);
+
+      if (generator == NULL) {
+        pwarning(1, "Unable to get a generator for \"%s\".\n", iter->c_str());
+      } else {
+        pverbose("Generating \"%s\"\n", iter->c_str());
+        generator->generate_program();
+      }
+    }
+
   } catch (string s) {
     printf("Error: %s\n", s.c_str());
   } catch (const char* exc) {
@@ -1003,6 +1001,11 @@ int main(int argc, char** argv) {
     usage();
   }
 
+  vector<string> generator_strings;
+
+  // Set the current path to a dummy value to make warning messages clearer.
+  g_curpath = "arguments";
+
   // Hacky parameter handling... I didn't feel like using a library sorry!
   for (i = 1; i < argc-1; i++) {
     char* arg;
@@ -1024,6 +1027,13 @@ int main(int argc, char** argv) {
         g_verbose = 1;
       } else if (strcmp(arg, "-r") == 0 || strcmp(arg, "-recurse") == 0 ) {
         gen_recurse = true;
+      } else if (strcmp(arg, "-gen") == 0) {
+        arg = argv[++i];
+        if (arg == NULL) {
+          fprintf(stderr, "!!! Missing generator specification");
+          usage();
+        }
+        generator_strings.push_back(arg);
       } else if (strcmp(arg, "-dense") == 0) {
         gen_dense = true;
       } else if (strcmp(arg, "-cpp") == 0) {
@@ -1123,8 +1133,29 @@ int main(int argc, char** argv) {
     }
   }
 
+  // TODO(dreiss): Delete these when everyone is using the new hotness.
+  if (gen_cpp) {
+    pwarning(1, "-cpp is deprecated.  Use --gen cpp");
+    string gen_string = "cpp:";
+    if (gen_dense) {
+      gen_string.append("dense,");
+    }
+    if (g_cpp_use_include_prefix) {
+      gen_string.append("include_prefix,");
+    }
+    generator_strings.push_back(gen_string);
+  }
+  if (gen_java) {
+    pwarning(1, "-java is deprecated.  Use --gen java");
+    generator_strings.push_back("java");
+  }
+  if (gen_javabean) {
+    pwarning(1, "-javabean is deprecated.  Use --gen java:beans");
+    generator_strings.push_back("java:beans");
+  }
+
   // You gotta generate something!
-  if (!gen_cpp && !gen_java && !gen_javabean && !gen_php && !gen_phpi && !gen_py && !gen_rb && !gen_xsd && !gen_perl && !gen_erl && !gen_alterl && !gen_ocaml && !gen_hs && !gen_cocoa && !gen_st && !gen_csharp) {
+  if (!gen_php && !gen_phpi && !gen_py && !gen_rb && !gen_xsd && !gen_perl && !gen_erl && !gen_alterl && !gen_ocaml && !gen_hs && !gen_cocoa && !gen_st && !gen_csharp && generator_strings.empty()) {
     fprintf(stderr, "!!! No output language(s) specified\n\n");
     usage();
   }
@@ -1141,18 +1172,18 @@ int main(int argc, char** argv) {
   if (out_path.size()) {
     program->set_out_path(out_path);
   }
-  if (g_cpp_use_include_prefix) {
-    // infer this from the filename passed in
-    string input_filename = argv[i];
-    string include_prefix;
 
-    string::size_type last_slash = string::npos;
-    if ((last_slash = input_filename.rfind("/")) != string::npos) {
-      include_prefix = input_filename.substr(0, last_slash);
-    }
+  // Compute the cpp include prefix.
+  // infer this from the filename passed in
+  string input_filename = argv[i];
+  string include_prefix;
 
-    program->set_include_prefix(include_prefix);
+  string::size_type last_slash = string::npos;
+  if ((last_slash = input_filename.rfind("/")) != string::npos) {
+    include_prefix = input_filename.substr(0, last_slash);
   }
+
+  program->set_include_prefix(include_prefix);
 
   // Initialize global types
   g_type_void   = new t_base_type("void",   t_base_type::TYPE_VOID);
@@ -1171,8 +1202,15 @@ int main(int argc, char** argv) {
   // Parse it!
   parse(program, NULL);
 
+  // The current path is not really relevant when we are doing generation.
+  // Reset the variable to make warning messages clearer.
+  g_curpath = "generation";
+  // Reset yylineno for the heck of it.  Use 1 instead of 0 because
+  // That is what shows up during argument parsing.
+  yylineno = 1;
+
   // Generate it!
-  generate(program);
+  generate(program, generator_strings);
 
   // Clean up. Who am I kidding... this program probably orphans heap memory
   // all over the place, but who cares because it is about to exit and it is

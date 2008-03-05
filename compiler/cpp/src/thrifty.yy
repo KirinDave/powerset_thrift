@@ -69,7 +69,7 @@ int g_arglist = 0;
 %token<dconst> tok_dub_constant
 
 /**
- * Header keywoards
+ * Header keywords
  */
 %token tok_include
 %token tok_namespace
@@ -247,19 +247,20 @@ Header:
     {
       pdebug("Header -> Include");
     }
-| tok_namespace tok_identifier
+| tok_namespace tok_identifier tok_identifier
     {
-      pwarning(1, "'namespace' is deprecated. Use 'cpp_namespace' and/or 'java_package' instead");
+      pdebug("Header -> tok_namespace tok_identifier tok_identifier");
       if (g_parse_mode == PROGRAM) {
-        g_program->set_cpp_namespace($2);
-        g_program->set_java_package($2);
+        g_program->set_namespace($2, $3);
       }
     }
+/* TODO(dreiss): Get rid of this once everyone is using the new hotness. */
 | tok_cpp_namespace tok_identifier
     {
+      pwarning(1, "'cpp_namespace' is deprecated. Use 'namespace cpp' instead");
       pdebug("Header -> tok_cpp_namespace tok_identifier");
       if (g_parse_mode == PROGRAM) {
-        g_program->set_cpp_namespace($2);
+        g_program->set_namespace("cpp", $2);
       }
     }
 | tok_cpp_include tok_literal
@@ -311,11 +312,13 @@ Header:
         g_program->set_smalltalk_prefix($2);
       }
     }
+/* TODO(dreiss): Get rid of this once everyone is using the new hotness. */
 | tok_java_package tok_identifier
     {
+      pwarning(1, "'java_package' is deprecated. Use 'namespace java' instead");
       pdebug("Header -> tok_java_package tok_identifier");
       if (g_parse_mode == PROGRAM) {
-        g_program->set_java_package($2);
+        g_program->set_namespace("java", $2);
       }
     }
 | tok_cocoa_prefix tok_identifier

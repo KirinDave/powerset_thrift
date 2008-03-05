@@ -14,6 +14,26 @@ namespace facebook { namespace thrift { namespace transport {
 using namespace std;
 
 /**
+ * TSocketPoolServer implementation
+ *
+ * @author Akhil Wable <akhil@facebook.com>
+ */
+TSocketPoolServer::TSocketPoolServer()
+  : host_(""),
+    port_(0),
+    lastFailTime_(0),
+    consecutiveFailures_(0) {}
+
+/**
+ * Constructor for TSocketPool server
+ */
+TSocketPoolServer::TSocketPoolServer(const std::string &host, int port)
+  : host_(host),
+    port_(port),
+    lastFailTime_(0),
+    consecutiveFailures_(0) {}
+
+/**
  * TSocketPool implementation.
  *
  * @author Jason Sobel <jsobel@facebook.com>
@@ -37,7 +57,19 @@ TSocketPool::TSocketPool(const vector<string> &hosts,
   }
 }
 
-TSocketPool::TSocketPool(const vector<pair<string, int> > servers) : TSocket(),
+TSocketPool::TSocketPool(const std::vector<pair<string, int> >& servers) : TSocket(),
+  numRetries_(1),
+  retryInterval_(60),
+  maxConsecutiveFailures_(1),
+  randomize_(true),
+  alwaysTryLast_(true)
+{
+  for (unsigned i = 0; i < servers.size(); ++i) {
+    addServer(servers[i].first, servers[i].second);
+  }
+}
+
+TSocketPool::TSocketPool(const std::vector<TSocketPoolServer>& servers) : TSocket(),
   servers_(servers),
   numRetries_(1),
   retryInterval_(60),
@@ -62,7 +94,11 @@ TSocketPool::~TSocketPool() {
 }
 
 void TSocketPool::addServer(const string& host, int port) {
-  servers_.push_back(pair<string, int>(host, port));
+  servers_.push_back(TSocketPoolServer(host, port));
+}
+
+std::vector<TSocketPoolServer> TSocketPool::getServers() {
+  return servers_;
 }
 
 void TSocketPool::setNumRetries(int numRetries) {
@@ -92,19 +128,47 @@ void TSocketPool::open() {
     std::random_shuffle(servers_.begin(), servers_.end());
   }
 
-  for (unsigned int i = 0; i < servers_.size(); ++i) {
-    host_ = servers_[i].first;
-    port_ = servers_[i].second;
+  unsigned int numServers = servers_.size();
+  for (unsigned int i = 0; i < numServers; ++i) {
 
-    for (int j = 0; j < numRetries_; ++j) {
-      try {
-        TSocket::open();
+    TSocketPoolServer &server = servers_[i];
+    bool retryIntervalPassed = (server.lastFailTime_ == 0);
+    bool isLastServer = alwaysTryLast_ ? (i == (numServers - 1)) : false;
 
-        // success
-        return;
-      } catch (TException e) {
-        // connection failed
+    host_ = server.host_;
+    port_ = server.port_;
+
+    if (server.lastFailTime_ > 0) {
+      // The server was marked as down, so check if enough time has elapsed to retry
+      int elapsedTime = time(NULL) - server.lastFailTime_;
+      if (elapsedTime > retryInterval_) {
+        retryIntervalPassed = true;
       }
+    }
+
+    if (retryIntervalPassed || isLastServer) {
+      for (int j = 0; j < numRetries_; ++j) {
+        try {
+          TSocket::open();
+
+          // reset lastFailTime_ is required
+          if (server.lastFailTime_) {
+            server.lastFailTime_ = 0;
+          }
+
+          // success
+          return;
+        } catch (TException e) {
+          // connection failed
+        }
+      }
+    }
+
+    ++server.consecutiveFailures_;
+    if (server.consecutiveFailures_ > maxConsecutiveFailures_) {
+      // Mark server as down
+      server.consecutiveFailures_ = 0;
+      server.lastFailTime_ = time(NULL);
     }
   }
 

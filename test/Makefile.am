@@ -1,5 +1,12 @@
+SUBDIRS = py
+
+if ENABLE_JAVA
+SUBDIRS += java
+endif
+
 check_PROGRAMS = \
 	DebugProtoTest \
+	JSONProtoTest \
 	OptionalRequiredTest \
 	ReflectionTest
 
@@ -17,6 +24,16 @@ DebugProtoTest_SOURCES = \
 DebugProtoTest_LDADD = \
 	$(top_srcdir)/lib/cpp/libthrift.la
 
+
+#
+# JSONProtoTest
+#
+JSONProtoTest_SOURCES = \
+	gen-cpp/DebugProtoTest_types.cpp \
+	JSONProtoTest.cpp
+
+JSONProtoTest_LDADD = \
+	$(top_srcdir)/lib/cpp/libthrift.la
 
 #
 # OptionalRequiredTest
@@ -49,13 +66,13 @@ ReflectionTest_LDADD = \
 THRIFT = $(top_srcdir)/compiler/cpp/thrift
 
 gen-cpp/DebugProtoTest_types.cpp gen-cpp/PartiallyReflectable.cpp: DebugProtoTest.thrift
-	$(THRIFT) -cpp $<
+	$(THRIFT) --gen cpp:dense,reflection_limited $<
 
 gen-cpp/OptionalRequiredTest_types.cpp: OptionalRequiredTest.thrift
-	$(THRIFT) -cpp $<
+	$(THRIFT) --gen cpp:dense $<
 
 gen-cpp/Service.cpp gen-cpp/StressTest_types.cpp: StressTest.thrift
-	$(THRIFT) -cpp $<
+	$(THRIFT) --gen cpp:dense,reflection_limited $<
 
 
 INCLUDES = \
@@ -64,4 +81,4 @@ INCLUDES = \
 AM_CPPFLAGS = $(BOOST_CPPFLAGS)
 
 clean-local:
-	rm -rf gen-cpp
+	$(RM) -r gen-cpp

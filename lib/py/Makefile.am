@@ -1,7 +1,7 @@
 DESTDIR ?= /
 EXTRA_DIST = setup.py src
 
-all:
+all-local:
 	$(PYTHON) setup.py build
 
 # We're ignoring prefix here because site-packages seems to be
@@ -11,6 +11,7 @@ all:
 install-exec-hook:
 	$(PYTHON) setup.py install --root=$(DESTDIR) --prefix=$(PY_PREFIX) $(PYTHON_SETUPUTIL_ARGS)
 
-clean-generic:
-	rm -rf build
+clean-local:
+	$(RM) -r build
 
+check-local: all

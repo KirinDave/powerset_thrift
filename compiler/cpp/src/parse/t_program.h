@@ -145,15 +145,20 @@ class t_program : public t_doc {
     }
   }
 
+  // Language neutral namespace / packaging
+  void set_namespace(std::string language, std::string name_space) {
+    namespaces_[language] = name_space;
+  }
+
+  std::string get_namespace(std::string language) const {
+    std::map<std::string, std::string>::const_iterator iter = namespaces_.find(language);
+    if (iter == namespaces_.end()) {
+      return std::string();
+    }
+    return iter->second;
+  }
+
   // Language specific namespace / packaging
-
-  void set_cpp_namespace(std::string cpp_namespace) {
-    cpp_namespace_ = cpp_namespace;
-  }
-
-  const std::string& get_cpp_namespace() const {
-    return cpp_namespace_;
-  }
 
   void add_cpp_include(std::string path) {
     cpp_includes_.push_back(path);
@@ -169,14 +174,6 @@ class t_program : public t_doc {
 
   const std::string& get_php_namespace() const {
     return php_namespace_;
-  }
-
-  void set_java_package(std::string java_package) {
-    java_package_ = java_package;
-  }
-
-  const std::string& get_java_package() const {
-    return java_package_;
   }
 
   void set_csharp_namespace(std::string csharp_namespace) {
@@ -275,17 +272,14 @@ class t_program : public t_doc {
   std::vector<t_struct*>  xceptions_;
   std::vector<t_service*> services_;
 
-  // C++ namespace
-  std::string cpp_namespace_;
+  // Dynamic namespaces
+  std::map<std::string, std::string> namespaces_;
 
   // C++ extra includes
   std::vector<std::string> cpp_includes_;
 
   // PHP namespace
   std::string php_namespace_;
-
-  // Java package
-  std::string java_package_;
 
   // XSD namespace
   std::string xsd_namespace_;

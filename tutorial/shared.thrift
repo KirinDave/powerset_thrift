@@ -5,8 +5,8 @@
  * these definitions.
  */
 
-cpp_namespace shared
-java_package shared
+namespace cpp shared
+namespace java shared
 perl_package shared
 
 struct SharedStruct {

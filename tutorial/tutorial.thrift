@@ -44,8 +44,8 @@ include "shared.thrift"
  * Thrift files can namespace, package, or prefix their output in various
  * target languages.
  */
-cpp_namespace tutorial
-java_package tutorial
+namespace cpp tutorial
+namespace java tutorial
 php_namespace tutorial
 perl_package tutorial
 smalltalk_category Thrift-Tutorial

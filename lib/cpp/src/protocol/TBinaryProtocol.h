@@ -50,7 +50,7 @@ class TBinaryProtocol : public TProtocol {
 
   ~TBinaryProtocol() {
     if (string_buf_ != NULL) {
-      free(string_buf_);
+      std::free(string_buf_);
       string_buf_size_ = 0;
     }
   }
@@ -119,8 +119,9 @@ class TBinaryProtocol : public TProtocol {
 
   uint32_t writeDouble(const double dub);
 
-
   uint32_t writeString(const std::string& str);
+
+  uint32_t writeBinary(const std::string& str);
 
   /**
    * Reading functions
@@ -172,6 +173,8 @@ class TBinaryProtocol : public TProtocol {
   uint32_t readDouble(double& dub);
 
   uint32_t readString(std::string& str);
+
+  uint32_t readBinary(std::string& str);
 
  protected:
   uint32_t readStringBody(std::string& str, int32_t sz);

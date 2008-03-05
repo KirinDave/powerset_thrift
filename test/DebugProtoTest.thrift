@@ -1,4 +1,16 @@
-cpp_namespace thrift.test
+namespace cpp thrift.test
+namespace java thrift.test
+
+struct Doubles {
+ 1: double nan,
+ 2: double inf,
+ 3: double neginf,
+ 4: double repeating,
+ 5: double big,
+ 6: double small,
+ 7: double zero,
+ 8: double negzero,
+}
 
 struct OneOfEach {
   1: bool im_true,
@@ -11,6 +23,7 @@ struct OneOfEach {
   8: string some_characters,
   9: string zomg_unicode,
   10: bool what_who,
+  11: binary base64,
 }
 
 struct Bonk {

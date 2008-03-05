@@ -1,5 +1,5 @@
-java_package thrift.test
-cpp_namespace thrift.test
+namespace java thrift.test
+namespace cpp thrift.test
 ruby_namespace Thrift.Test
 perl_package ThriftTest
 csharp_namespace Thrift.Test
@@ -98,4 +98,25 @@ service ThriftTest
 service SecondService
 {
   void blahBlah()
+}
+
+struct VersioningTestV1 {
+       1: i32 begin_in_both,
+       12: i32 end_in_both
+}
+
+struct VersioningTestV2 {
+       1: i32 begin_in_both,
+
+       2: i32 newint,
+       3: byte newbyte,
+       4: i16 newshort,
+       5: i64 newlong,
+       6: double newdouble
+       7: Bonk newstruct,
+       8: list<i32> newlist,
+       9: set<i32> newset,
+       10: map<i32, i32> newmap,
+       11: string newstring,
+       12: i32 end_in_both
 }

@@ -36,9 +36,20 @@ AM_CONDITIONAL([AMX_HAVE_LIBEVENT], [test "$success" = "yes"])
 AX_LIB_ZLIB([1.2.3])
 AM_CONDITIONAL([AMX_HAVE_ZLIB], [test "$success" = "yes"])
 
-PKG_CHECK_MODULES(MONO, mono >= 1.2.6, have_mono=yes, have_mono=no)
+AX_THRIFT_LIB(csharp, [C#], yes)
+if test "$with_csharp" = "yes";  then
+  PKG_CHECK_MODULES(MONO, mono >= 1.2.6, have_mono=yes, have_mono=no)
+fi
 AM_CONDITIONAL(ENABLE_MONO, [test "$have_mono" = "yes"])
 
+AX_THRIFT_LIB(java, [Java], yes)
+if test "$with_java" = "yes";  then
+  AC_PATH_PROG([ANT], [ant])
+  AX_PROG_JAVAC
+  AX_PROG_JAVA
+fi
+AM_CONDITIONAL([ENABLE_JAVA],
+               [test -n "$ANT" -a -n "$JAVA" -a -n "$JAVAC"])
 
 AC_C_CONST
 AC_C_INLINE
@@ -56,6 +67,7 @@ AC_CHECK_HEADERS([netdb.h])
 AC_CHECK_HEADERS([netinet/in.h])
 AC_CHECK_HEADERS([pthread.h])
 AC_CHECK_HEADERS([stddef.h])
+AC_CHECK_HEADERS([stdlib.h])
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([sys/time.h])
 AC_CHECK_HEADERS([unistd.h])
@@ -107,6 +119,11 @@ AC_CHECK_FUNCS([strstr])
 AC_CHECK_FUNCS([strtol])
 AC_CHECK_FUNCS([sqrt])
 
+AX_THRIFT_GEN(cpp, [C++], yes)
+AM_CONDITIONAL([THRIFT_GEN_cpp], [test "$ax_thrift_gen_cpp" = "yes"])
+AX_THRIFT_GEN(java, [Java], yes)
+AM_CONDITIONAL([THRIFT_GEN_java], [test "$ax_thrift_gen_java" = "yes"])
+
 AC_CONFIG_HEADERS(config.h:config.hin)
 
 AC_CONFIG_FILES([
@@ -118,9 +135,12 @@ AC_CONFIG_FILES([
   lib/cpp/thrift-nb.pc
   lib/cpp/thrift-z.pc
   lib/csharp/Makefile
+  lib/java/Makefile
   lib/py/Makefile
   if/Makefile
   test/Makefile
+  test/py/Makefile
+  test/java/Makefile
 ])
 
 AC_OUTPUT
