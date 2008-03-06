@@ -10,7 +10,7 @@ AC_ARG_VAR([PY_PREFIX], [Prefix for installing Python modules.
                          (Normal --prefix is ignored for Python because
                          Python has different conventions.)
                          Default = "/usr"])
-AS_IF([test "x$PY_PREFIX" == x], [PY_PREFIX="/usr"])
+AS_IF([test "x$PY_PREFIX" = x], [PY_PREFIX="/usr"])
 
 AM_PATH_PYTHON(2.4,, :)
 
@@ -50,6 +50,13 @@ if test "$with_java" = "yes";  then
 fi
 AM_CONDITIONAL([ENABLE_JAVA],
                [test -n "$ANT" -a -n "$JAVA" -a -n "$JAVAC"])
+
+AX_THRIFT_LIB(erlang, [Erlang], yes)
+if test "$with_erlang" = "yes";  then
+  AC_PATH_PROG([ERLC], [erlc])
+fi
+
+AM_CONDITIONAL(ENABLE_ERLANG, [test -n "$ERLC"])
 
 AC_C_CONST
 AC_C_INLINE
