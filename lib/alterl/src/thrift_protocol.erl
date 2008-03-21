@@ -125,7 +125,7 @@ read(IProto, {set, Type}) ->
 
 read(#protocol{module = Module,
                data = ModuleData}, ProtocolType) ->
-    Module:read(ModuleData, ProtocolType).
+  Module:read(ModuleData, ProtocolType).
 
 read_struct_loop(IProto, SDict, RDict) ->
     #protocol_field_begin{type = FType, id = Fid, name = Name} =
